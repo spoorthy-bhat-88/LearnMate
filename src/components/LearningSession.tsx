@@ -6,7 +6,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
-import { LearningStep } from '../types';
+import { LearningStep, DifficultyLevel } from '../types';
 import { generateLearningSteps } from '../services/ai';
 
 mermaid.initialize({
@@ -44,6 +44,7 @@ const Mermaid = ({ chart }: { chart: string }) => {
 
 export default function LearningSession() {
   const [topic, setTopic] = useState('');
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>('beginner');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [steps, setSteps] = useState<LearningStep[]>([]);
@@ -67,7 +68,7 @@ export default function LearningSession() {
     setIsSessionComplete(false);
 
     try {
-      const response = await generateLearningSteps(topicToLearn);
+      const response = await generateLearningSteps(topicToLearn, difficulty);
       const learningSteps: LearningStep[] = response.steps.map((step, index) => ({
         id: `step-${index}`,
         title: step.title,
@@ -142,15 +143,33 @@ export default function LearningSession() {
           </div>
 
           <div className="space-y-4">
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleStartLearning()}
-              placeholder="e.g., React Hooks, Machine Learning, Spanish..."
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
-              disabled={loading}
-            />
+            <div className="flex flex-col gap-4">
+              <input
+                type="text"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleStartLearning()}
+                placeholder="e.g., React Hooks, Machine Learning, Spanish..."
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                disabled={loading}
+              />
+              
+              <div className="flex gap-2 justify-center">
+                {(['beginner', 'intermediate', 'advanced'] as DifficultyLevel[]).map((level) => (
+                  <button
+                    key={level}
+                    onClick={() => setDifficulty(level)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize border ${
+                      difficulty === level
+                        ? 'bg-primary-100 text-primary-700 border-primary-200 shadow-sm'
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {error && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -241,7 +260,12 @@ export default function LearningSession() {
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden animate-fade-in">
         {/* Header */}
         <div className="bg-gradient-to-r from-primary-600 to-primary-700 p-6 text-white">
-          <h2 className="text-2xl font-bold mb-2">{topic}</h2>
+          <div className="flex items-start justify-between mb-2">
+            <h2 className="text-2xl font-bold">{topic}</h2>
+            <span className="px-2 py-1 bg-white/20 rounded text-xs font-medium uppercase tracking-wider text-white/90">
+              {difficulty}
+            </span>
+          </div>
           <div className="flex items-center justify-between">
             <p className="text-primary-100">
               Step {currentStepIndex + 1} of {steps.length}

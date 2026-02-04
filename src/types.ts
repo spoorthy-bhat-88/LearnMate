@@ -5,6 +5,8 @@ export interface LearningStep {
   completed: boolean;
 }
 
+export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
+
 export interface LearningSummary {
   id: string;
   topic: string;

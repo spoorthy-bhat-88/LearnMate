@@ -1,7 +1,7 @@
 // List available models
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const apiKey = 'AIzaSyD4Yad0U3zsfwsbB4l81fAyY_zKKwtPqGQ';
+const apiKey = process.env.GEMINI_API_KEY || 'YOUR_API_KEY_HERE';
 
 async function listModels() {
   console.log('Checking available models for your API key...\n');

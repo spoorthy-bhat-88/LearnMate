@@ -1,12 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { AIResponse } from '../types';
+import { AIResponse, DifficultyLevel } from '../types';
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
 // Initialize Gemini client (only if API key is provided)
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
-export async function generateLearningSteps(topic: string): Promise<AIResponse> {
+export async function generateLearningSteps(topic: string, level: DifficultyLevel = 'beginner'): Promise<AIResponse> {
   if (!genAI) {
     throw new Error('API Key Missing: Please add your free Google Gemini API key to the .env file to start generating learning paths.');
   }
@@ -22,7 +22,22 @@ export async function generateLearningSteps(topic: string): Promise<AIResponse> 
       }
     });
 
+    const levelInstructions = {
+      beginner: "Target Audience: Beginners. Focus on high-level concepts, use clear and simple analogies, avoid heavy jargon, and assume zero prior knowledge.",
+      intermediate: "Target Audience: Intermediate Learners. Focus on practical implementation, standard practices, and connecting concepts. Assume basic familiarity with the domain.",
+      advanced: "Target Audience: Experts. Focus on deep theoretical complexity, edge cases, performance optimization, and advanced mathematical or architectural principles. Do not over-explain basics."
+    };
+
+    const stepsConfig = {
+      beginner: "5-10",
+      intermediate: "15-20",
+      advanced: "25-30"
+    };
+
     const prompt = `You are a world-class expert teacher and instructional designer. Your goal is to create a highly engaging, interactive, and visual learning path for the topic: "${topic}".
+
+**DIFFICULTY LEVEL: ${level.toUpperCase()}**
+${levelInstructions[level]}
 
 CRITICAL INSTRUCTIONS FOR ACCURACY:
 1. Prioritize factual correctness above all else. Do not invent libraries, historical events, or scientific principles.
@@ -30,7 +45,7 @@ CRITICAL INSTRUCTIONS FOR ACCURACY:
 3. If the topic is controversial or theoretical, present it as such, not as absolute fact.
 4. If the topic is completely nonsensical or you lack sufficient verifiable information, provide a polite "Step 1" explaining the limitation instead of hallucinating content.
 
-Break the topic down into 5-10 clear, progressive learning steps. Each step must be a self-contained lesson that builds upon the previous one. Use a conversational, encouraging, and storytelling tone.
+Break the topic down into ${stepsConfig[level]} clear, progressive learning steps. Each step must be a self-contained lesson that builds upon the previous one. Use a conversational, encouraging, and storytelling tone.
 
 For each step, you MUST provide the following in rich Markdown format, but DO NOT include the bolded section labels (like "Core Concept:", "Real-World Analogy:", etc.). Just provide the content directly in a flowing, natural structure.
 
@@ -56,7 +71,7 @@ Example format:
   "relatedTopics": ["Related Topic 1", "Related Topic 2", "Related Topic 3"]
 }
 
-Now, create this detailed, step-by-step learning guide for: ${topic}`;
+Now, create this detailed, step-by-step learning guide for: ${topic} at the ${level} level.`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
