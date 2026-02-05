@@ -8,18 +8,20 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Basic CORS middleware: allow configurable origin (useful to restrict to your GH Pages URL)
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
-app.use(express.json());
+// Configure CORS
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
 
-// Explicitly handle preflight OPTIONS requests and ensure required headers are present.
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
-  res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', req.header('access-control-request-headers') || 'Content-Type, Authorization');
-  // Some proxies require a non-empty response for OPTIONS
-  return res.sendStatus(204);
-});
+app.use(cors(corsOptions));
+// Handle preflight requests for all routes
+app.options('*', cors(corsOptions));
+
+app.use(express.json());
 
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
