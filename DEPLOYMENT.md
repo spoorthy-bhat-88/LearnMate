@@ -40,8 +40,24 @@ This guide helps you deploy LearnMate securely by keeping your API Key on a back
     *   Go to `https://<your-username>.github.io/LearnMate/`.
     *   Try generating a lesson. It should work without exposing your API key in the browser/network tab!
 
+## 3. Automate Frontend Deployment (GitHub Actions)
+
+Instead of manually running `npm run deploy`, you can set up GitHub Actions to deploy automatically on every push.
+
+1.  **Get your Backend URL** from Render (e.g., `https://learnmate-backend.onrender.com`).
+2.  **Go to GitHub Repository Settings**:
+    *   Navigate to **Settings** > **Secrets and variables** > **Actions**.
+    *   Click **New repository secret**.
+3.  **Add Secret**:
+    *   **Name**: `VITE_BACKEND_URL`
+    *   **Value**: Paste your Render URL (no trailing slash).
+4.  **Push your code**:
+    *   The workflow file `.github/workflows/deploy.yml` is already created.
+    *   Any commit to the `main` branch will now trigger a build and deploy to GitHub Pages automatically.
+
 ## Troubleshooting
 - **CORS Errors?** The backend is configured to accept all origins (`cors()`). If you face issues, check the Network tab in browser dev tools.
+
 - **Blank Screen?** Ensure your repository name is exactly `LearnMate` (case sensitive). If it's different, update `base: '/RepoName/'` in `vite.config.ts` and redeploy.
 
 
