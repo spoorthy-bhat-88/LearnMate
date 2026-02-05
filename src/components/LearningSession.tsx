@@ -27,9 +27,14 @@ const Mermaid = ({ chart }: { chart: string }) => {
         setSvg(renderedSvg);
       } catch (error) {
         console.error('Mermaid render error:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const isDynamicImportError = errorMessage.includes('import') || errorMessage.includes('fetch') || errorMessage.includes('loading');
+
         setSvg(`<div class="text-red-600 bg-red-50 p-4 rounded-lg text-sm font-mono whitespace-pre-wrap border border-red-200">
-          <strong>Failed to render diagram:</strong><br/>
-          ${error instanceof Error ? error.message : String(error)}
+          <strong>${isDynamicImportError ? 'Loading Error' : 'Failed to render diagram'}</strong><br/>
+          ${isDynamicImportError 
+            ? 'A required file failed to load. This usually happens after a new deployment. Please refresh the page.' 
+            : errorMessage}
         </div>`);
       }
     };
