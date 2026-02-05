@@ -9,23 +9,34 @@ import mermaid from 'mermaid';
 import { LearningStep, DifficultyLevel, ChatMessage } from '../types';
 import { generateLearningSteps, askFollowUpQuestion } from '../services/ai';
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'neutral',
-  securityLevel: 'loose',
-  suppressErrorRendering: true,
-});
+// Initialize Mermaid once, globally
+if (typeof window !== 'undefined') {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'neutral',
+    securityLevel: 'loose',
+    suppressErrorRendering: true,
+  });
+}
 
 const Mermaid = ({ chart }: { chart: string }) => {
   const [svg, setSvg] = useState('');
   const idRef = useRef(`mermaid-${Math.random().toString(36).substr(2, 9)}`);
 
   useEffect(() => {
+    // Only attempt to render if chart is present
+    if (!chart) return;
+
     const render = async () => {
       try {
+        // Force a small delay to ensure DOM is ready and modules loaded
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        // mermaid.render usually returns object { svg } on newer versions
         const { svg: renderedSvg } = await mermaid.render(idRef.current, chart);
         setSvg(renderedSvg);
       } catch (error) {
+
         console.error('Mermaid render error:', error);
         const errorMessage = error instanceof Error ? error.message : String(error);
         const isDynamicImportError = errorMessage.includes('import') || errorMessage.includes('fetch') || errorMessage.includes('loading');
