@@ -1,53 +1,49 @@
-# 🚀 Deployment Guide - Host LearnMate for FREE
+# 🚀 Deployment Guide - Backend (Render) + Frontend (GitHub Pages)
 
-## Why Vercel?
+This guide helps you deploy LearnMate securely by keeping your API Key on a backend server.
 
-- ✅ **100% Free** for personal projects
-- ✅ **Zero Configuration** - works out of the box
-- ✅ **Automatic HTTPS** - secure by default
-- ✅ **Global CDN** - fast worldwide
-- ✅ **Automatic Deployments** - push to GitHub = instant deploy
-- ✅ **Environment Variables** - secure API key storage
+## Architecture
+- **Backend (Node.js):** Hosted on Render.com. Handles API requests to Google Gemini.
+- **Frontend (React):** Hosted on GitHub Pages. Sends requests to your Backend.
 
-## Method 1: Deploy via Vercel Dashboard (Easiest)
+---
 
-### Prerequisites:
-- GitHub account
-- Vercel account (free - sign up with GitHub)
+## 1. Deploy Backend to Render
 
-### Steps:
+1.  **Push your code to GitHub.**
+2.  Go to [Render Dashboard](https://dashboard.render.com/) -> **New +** -> **Web Service**.
+3.  Connect your `LearnMate` repository.
+4.  **Configure the Service**:
+    *   **Root Directory**: `backend` (Important! This tells Render where the server code lives).
+    *   **Build Command**: `npm install`
+    *   **Start Command**: `node server.js`
+    *   **Environment Variables**:
+        *   Add `GEMINI_API_KEY` with your actual Google API key.
+5.  Click **Create Web Service**.
+6.  Once deployed, **copy the URL** (e.g., `https://learnmate-backend.onrender.com`).
 
-1. **Push to GitHub**
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit - LearnMate"
-   git branch -M main
-   git remote add origin https://github.com/YOUR_USERNAME/LearnMate.git
-   git push -u origin main
-   ```
+---
 
-2. **Deploy on Vercel**
-   - Go to https://vercel.com
-   - Click "New Project"
-   - Import your GitHub repository
-   - Vercel auto-detects settings (no config needed!)
-   - Click "Deploy"
+## 2. Deploy Frontend to GitHub Pages
 
-3. **Add Environment Variables** (for full AI functionality)
-   - Go to Project Settings → Environment Variables
-   - Add key: `VITE_GEMINI_API_KEY`
-   - Add value: your Google Gemini API key
-   - Click "Save"
-   - Redeploy the project
+1.  **Configure Frontend with Backend URL**:
+    Run the deployment command in your local terminal, but inject your new Render URL:
+    
+    ```bash
+    # Replace the URL below with your actual Render URL
+    VITE_BACKEND_URL=https://your-app-name.onrender.com npm run deploy
+    ```
 
-4. **Done!** 🎉
-   - Your app is live at: `your-project.vercel.app`
-   - Share the link with friends!
+    *This command builds the React app, telling it to talk to your specific backend, and uploads the files to GitHub.*
 
-## Method 2: Deploy via CLI (For Developers)
+2.  **Verify Deployment**:
+    *   Go to `https://<your-username>.github.io/LearnMate/`.
+    *   Try generating a lesson. It should work without exposing your API key in the browser/network tab!
 
-### Steps:
+## Troubleshooting
+- **CORS Errors?** The backend is configured to accept all origins (`cors()`). If you face issues, check the Network tab in browser dev tools.
+- **Blank Screen?** Ensure your repository name is exactly `LearnMate` (case sensitive). If it's different, update `base: '/RepoName/'` in `vite.config.ts` and redeploy.
+
 
 1. **Install Vercel CLI**
    ```bash

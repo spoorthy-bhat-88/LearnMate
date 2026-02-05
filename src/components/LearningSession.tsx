@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, CheckCircle2, Circle, Loader2 } from 'lucide-react';
+import { Sparkles, CheckCircle2, Circle, Loader2, MessageCircle, Send, ArrowRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
-import { LearningStep, DifficultyLevel } from '../types';
-import { generateLearningSteps } from '../services/ai';
+import { LearningStep, DifficultyLevel, ChatMessage } from '../types';
+import { generateLearningSteps, askFollowUpQuestion } from '../services/ai';
 
 mermaid.initialize({
   startOnLoad: false,
@@ -42,6 +42,53 @@ const Mermaid = ({ chart }: { chart: string }) => {
   return <div className="my-4 flex justify-center bg-white p-4 rounded-lg shadow-sm border border-gray-100 overflow-auto" dangerouslySetInnerHTML={{ __html: svg }} />;
 };
 
+
+const MarkdownComponents = {
+    h1: ({node, ...props}: any) => <h1 className="text-3xl font-bold text-gray-900 mb-4" {...props} />,
+    h2: ({node, ...props}: any) => <h2 className="text-2xl font-bold text-gray-900 mb-3 mt-6" {...props} />,
+    h3: ({node, ...props}: any) => <h3 className="text-xl font-bold text-gray-900 mb-2 mt-4" {...props} />,
+    strong: ({node, ...props}: any) => <strong className="font-bold text-gray-900" {...props} />,
+    ul: ({node, ...props}: any) => <ul className="list-disc pl-6 mb-4 space-y-2" {...props} />,
+    ol: ({node, ...props}: any) => <ol className="list-decimal pl-6 mb-4 space-y-2" {...props} />,
+    li: ({node, ...props}: any) => <li className="pl-1" {...props} />,
+    table: ({node, ...props}: any) => <div className="overflow-x-auto my-6 rounded-lg border border-gray-200 shadow-sm"><table className="min-w-full divide-y divide-gray-200" {...props} /></div>,
+    thead: ({node, ...props}: any) => <thead className="bg-gray-50" {...props} />,
+    th: ({node, ...props}: any) => <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider" {...props} />,
+    tbody: ({node, ...props}: any) => <tbody className="bg-white divide-y divide-gray-200" {...props} />,
+    tr: ({node, ...props}: any) => <tr className="hover:bg-gray-50 transition-colors" {...props} />,
+    td: ({node, ...props}: any) => <td className="px-6 py-4 text-sm text-gray-700 whitespace-normal" {...props} />,
+    code({ node, inline, className, children, ...props }: any) {
+        const match = /language-(\w+)/.exec(className || '');
+        const isMermaid = match && match[1] === 'mermaid';
+        
+        if (!inline && isMermaid) {
+            return <Mermaid chart={String(children).replace(/\n$/, '')} />;
+        }
+
+        return !inline && match ? (
+        <div className="bg-slate-900 text-slate-50 rounded-lg p-5 my-4 overflow-x-auto border border-slate-700 shadow-sm relative">
+            {/* Optional: Add a subtle header or language label if desired, but for now just better styling */}
+            <code className={`${className} font-mono text-sm leading-relaxed block`} {...props}>
+            {children}
+            </code>
+        </div>
+        ) : (
+        <code className={`${className} bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-sm font-mono font-medium border border-slate-200`} {...props}>
+            {children}
+        </code>
+        );
+    }
+};
+
+const ChatMarkdownComponents = {
+    p: ({node, ...props}: any) => <p className="mb-2 last:mb-0" {...props} />,
+    code: ({node, inline, className, children, ...props}: any) => (
+        inline 
+        ? <code className="bg-black/10 px-1 py-0.5 rounded font-mono" {...props}>{children}</code>
+        : <div className="overflow-x-auto my-2"><code className="block bg-black/10 p-2 rounded font-mono text-xs whitespace-pre-wrap" {...props}>{children}</code></div>
+    )
+};
+
 export default function LearningSession() {
   const [topic, setTopic] = useState('');
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('beginner');
@@ -52,12 +99,60 @@ export default function LearningSession() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isSessionComplete, setIsSessionComplete] = useState(false);
 
+  // Chat State
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+
   // Scroll to top when step changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Reset chat
+    setChatHistory([]);
+    setChatInput('');
+    setIsChatLoading(false);
   }, [currentStepIndex, isSessionComplete]);
 
-  const handleStartLearning = async (topicToLearn: string = topic) => {
+  const handleChatSubmit = async () => {
+    if (!chatInput.trim() || isChatLoading) return;
+    
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: chatInput,
+      timestamp: Date.now()
+    };
+    
+    setChatHistory(prev => [...prev, userMsg]);
+    setChatInput('');
+    setIsChatLoading(true);
+    
+    try {
+      const currentStep = steps[currentStepIndex];
+      const answer = await askFollowUpQuestion(
+        topic,
+        currentStep.title,
+        currentStep.content,
+        userMsg.content,
+        chatHistory
+      );
+      
+      const assistantMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: answer,
+        timestamp: Date.now()
+      };
+      
+      setChatHistory(prev => [...prev, assistantMsg]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
+  const handleStartLearning = async (topicToLearn: string = topic, targetDifficulty: DifficultyLevel = difficulty) => {
     if (!topicToLearn.trim()) return;
 
     setLoading(true);
@@ -67,8 +162,12 @@ export default function LearningSession() {
     setCurrentStepIndex(0);
     setIsSessionComplete(false);
 
+    if (targetDifficulty !== difficulty) {
+      setDifficulty(targetDifficulty);
+    }
+
     try {
-      const response = await generateLearningSteps(topicToLearn, difficulty);
+      const response = await generateLearningSteps(topicToLearn, targetDifficulty);
       const learningSteps: LearningStep[] = response.steps.map((step, index) => ({
         id: `step-${index}`,
         title: step.title,
@@ -241,12 +340,24 @@ export default function LearningSession() {
             </div>
           </div>
 
-          <button
-            onClick={resetSession}
-            className="px-8 py-3 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-colors"
-          >
-            Start New Topic
-          </button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            {difficulty !== 'advanced' && (
+              <button
+                onClick={() => handleStartLearning(topic, difficulty === 'beginner' ? 'intermediate' : 'advanced')}
+                className="px-8 py-3 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-colors flex items-center gap-2 w-full sm:w-auto justify-center"
+              >
+                <span>Continue to {difficulty === 'beginner' ? 'Intermediate' : 'Advanced'}</span>
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            )}
+            
+            <button
+              onClick={resetSession}
+              className={`px-8 py-3 border-2 border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors w-full sm:w-auto ${difficulty === 'advanced' ? 'bg-primary-600 text-white hover:bg-primary-700 border-transparent' : 'text-gray-700'}`}
+            >
+              Start New Topic
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -323,45 +434,76 @@ export default function LearningSession() {
             <ReactMarkdown 
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}
-              components={{
-                h1: ({node, ...props}) => <h1 className="text-3xl font-bold text-gray-900 mb-4" {...props} />,
-                h2: ({node, ...props}) => <h2 className="text-2xl font-bold text-gray-900 mb-3 mt-6" {...props} />,
-                h3: ({node, ...props}) => <h3 className="text-xl font-bold text-gray-900 mb-2 mt-4" {...props} />,
-                strong: ({node, ...props}) => <strong className="font-bold text-gray-900" {...props} />,
-                ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-4 space-y-2" {...props} />,
-                ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-4 space-y-2" {...props} />,
-                li: ({node, ...props}) => <li className="pl-1" {...props} />,
-                table: ({node, ...props}) => <div className="overflow-x-auto my-6 rounded-lg border border-gray-200 shadow-sm"><table className="min-w-full divide-y divide-gray-200" {...props} /></div>,
-                thead: ({node, ...props}) => <thead className="bg-gray-50" {...props} />,
-                th: ({node, ...props}) => <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider" {...props} />,
-                tbody: ({node, ...props}) => <tbody className="bg-white divide-y divide-gray-200" {...props} />,
-                tr: ({node, ...props}) => <tr className="hover:bg-gray-50 transition-colors" {...props} />,
-                td: ({node, ...props}) => <td className="px-6 py-4 text-sm text-gray-700 whitespace-normal" {...props} />,
-                code({ node, inline, className, children, ...props }: any) {
-                  const match = /language-(\w+)/.exec(className || '');
-                  const isMermaid = match && match[1] === 'mermaid';
-                  
-                  if (!inline && isMermaid) {
-                    return <Mermaid chart={String(children).replace(/\n$/, '')} />;
-                  }
-
-                  return !inline && match ? (
-                    <div className="bg-slate-900 text-slate-50 rounded-lg p-5 my-4 overflow-x-auto border border-slate-700 shadow-sm relative">
-                       {/* Optional: Add a subtle header or language label if desired, but for now just better styling */}
-                      <code className={`${className} font-mono text-sm leading-relaxed block`} {...props}>
-                        {children}
-                      </code>
-                    </div>
-                  ) : (
-                    <code className={`${className} bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-sm font-mono font-medium border border-slate-200`} {...props}>
-                      {children}
-                    </code>
-                  );
-                }
-              }}
+              components={MarkdownComponents}
             >
               {currentStep.content}
             </ReactMarkdown>
+          </div>
+
+          {/* Chat Section */}
+          <div className="mt-12 pt-8 border-t border-gray-200">
+            <h3 className="text-xl font-bold mb-6 text-gray-900 flex items-center gap-2">
+              <MessageCircle className="w-6 h-6 text-primary-600" />
+              Have questions about this step?
+            </h3>
+
+            <div className="space-y-4 mb-6">
+              {chatHistory.length === 0 && (
+                <p className="text-gray-500 italic text-sm">
+                  Ask me anything about this specific lesson to dive deeper.
+                </p>
+              )}
+              {chatHistory.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-5 py-3.5 shadow-sm text-sm leading-relaxed ${
+                      msg.role === 'user'
+                        ? 'bg-primary-600 text-white rounded-br-none'
+                        : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200'
+                    }`}
+                  >
+                    <ReactMarkdown 
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                        components={ChatMarkdownComponents}
+                    >
+                        {msg.content}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              ))}
+               {isChatLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 rounded-2xl rounded-bl-none px-5 py-4 border border-gray-200 flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 relative">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleChatSubmit()}
+                placeholder="Ask a specific question..."
+                className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 transition-colors pr-12"
+                disabled={isChatLoading}
+              />
+              <button
+                onClick={handleChatSubmit}
+                disabled={!chatInput.trim() || isChatLoading}
+                className="absolute right-2 top-2 bottom-2 aspect-square bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           <div className="mt-8 flex justify-end">
