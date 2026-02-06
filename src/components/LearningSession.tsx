@@ -30,20 +30,26 @@ const Mermaid = ({ chart }: { chart: string }) => {
       try {
         setHasError(false);
         
-        // Clear previous diagram
-        const element = document.getElementById(idRef.current);
-        if (element) {
-          element.innerHTML = '';
-        }
-        
-        // Render diagram
-        const { svg: renderedSvg } = await mermaid.render(idRef.current, chart);
-        
-        if (isMounted) {
-          setSvg(renderedSvg);
+        // Try Mermaid first
+        try {
+          const { svg: renderedSvg } = await mermaid.render(idRef.current, chart);
+          if (isMounted) {
+            setSvg(renderedSvg);
+          }
+        } catch (mermaidError) {
+          console.warn('Mermaid failed, falling back to Graphviz:', mermaidError);
+          
+          // Fallback to Graphviz if Mermaid fails
+          const { renderDiagramWithGraphviz, convertMermaidToGraphviz } = await import('../services/diagram');
+          const dotSyntax = convertMermaidToGraphviz(chart);
+          const graphvizSvg = await renderDiagramWithGraphviz(dotSyntax);
+          
+          if (isMounted) {
+            setSvg(graphvizSvg);
+          }
         }
       } catch (error) {
-        console.error('Mermaid render error:', error);
+        console.error('Diagram render error:', error);
         
         if (isMounted) {
           setHasError(true);
