@@ -20,17 +20,34 @@ export function convertMermaidToGraphviz(mermaidSyntax: string): string {
   
   // For simple flowcharts, we can convert to DOT format
   let dotSyntax = 'digraph {\n  node [shape=box];\n';
+  const nodeMap = new Map<string, string>(); // Map ID to label
   
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('%%')) continue;
     
+    // First, extract node definitions (e.g., A["Label"])
+    const nodeDefMatch = trimmed.match(/^(\w+)\s*\[\s*"([^"]*)".*\]/);
+    if (nodeDefMatch) {
+      const nodeId = nodeDefMatch[1];
+      const label = nodeDefMatch[2];
+      nodeMap.set(nodeId, label);
+      continue;
+    }
+    
     // Convert Mermaid arrows to DOT arrows
     if (trimmed.includes('-->')) {
       const [from, to] = trimmed.split('-->').map(s => s.trim());
-      const cleanFrom = from.replace(/[A-Z0-9]+\[(.+)\]/, '$1').replace(/[[\]]/g, '');
-      const cleanTo = to.replace(/[A-Z0-9]+\[(.+)\]/, '$1').replace(/[[\]]/g, '');
-      dotSyntax += `  "${cleanFrom}" -> "${cleanTo}";\n`;
+      
+      // Get label or use ID
+      const fromLabel = nodeMap.get(from) || from;
+      const toLabel = nodeMap.get(to) || to;
+      
+      // Escape quotes in labels
+      const escapedFrom = fromLabel.replace(/"/g, '\\"');
+      const escapedTo = toLabel.replace(/"/g, '\\"');
+      
+      dotSyntax += `  "${escapedFrom}" -> "${escapedTo}";\n`;
     }
   }
   
