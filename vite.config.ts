@@ -5,6 +5,15 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: '/LearnMate/', // Needed for GitHub Pages
+  optimizeDeps: {
+    // Pre-bundle mermaid and dependencies to avoid dynamic import issues
+    include: ['mermaid', 'dagre', 'cytoscape'],
+    esbuildOptions: {
+      supported: {
+        topLevelAwait: true
+      }
+    }
+  },
 })
 
 

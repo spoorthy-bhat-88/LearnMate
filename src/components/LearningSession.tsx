@@ -9,51 +9,70 @@ import mermaid from 'mermaid';
 import { LearningStep, DifficultyLevel, ChatMessage } from '../types';
 import { generateLearningSteps, askFollowUpQuestion } from '../services/ai';
 
-// Initialize Mermaid once, globally
-if (typeof window !== 'undefined') {
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: 'neutral',
-    securityLevel: 'loose',
-    suppressErrorRendering: true,
-  });
-}
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'neutral',
+  securityLevel: 'loose',
+  suppressErrorRendering: true,
+});
 
 const Mermaid = ({ chart }: { chart: string }) => {
   const [svg, setSvg] = useState('');
+  const [hasError, setHasError] = useState(false);
   const idRef = useRef(`mermaid-${Math.random().toString(36).substr(2, 9)}`);
 
   useEffect(() => {
-    // Only attempt to render if chart is present
     if (!chart) return;
+
+    let isMounted = true;
 
     const render = async () => {
       try {
-        // Force a small delay to ensure DOM is ready and modules loaded
-        await new Promise(resolve => setTimeout(resolve, 0));
+        setHasError(false);
         
-        // mermaid.render usually returns object { svg } on newer versions
+        // Clear previous diagram
+        const element = document.getElementById(idRef.current);
+        if (element) {
+          element.innerHTML = '';
+        }
+        
+        // Render diagram
         const { svg: renderedSvg } = await mermaid.render(idRef.current, chart);
-        setSvg(renderedSvg);
+        
+        if (isMounted) {
+          setSvg(renderedSvg);
+        }
       } catch (error) {
-
         console.error('Mermaid render error:', error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        const isDynamicImportError = errorMessage.includes('import') || errorMessage.includes('fetch') || errorMessage.includes('loading');
-
-        setSvg(`<div class="text-red-600 bg-red-50 p-4 rounded-lg text-sm font-mono whitespace-pre-wrap border border-red-200">
-          <strong>${isDynamicImportError ? 'Loading Error' : 'Failed to render diagram'}</strong><br/>
-          ${isDynamicImportError 
-            ? 'A required file failed to load. This usually happens after a new deployment. Please refresh the page.' 
-            : errorMessage}
-        </div>`);
+        
+        if (isMounted) {
+          setHasError(true);
+          setSvg('');
+        }
       }
     };
-    
-    if (chart) {
-      render();
-    }
+
+    render();
+
+    return () => {
+      isMounted = false;
+    };
   }, [chart]);
+
+  if (hasError) {
+    return (
+      <div className="my-4 flex justify-center bg-blue-50 p-4 rounded-lg border border-blue-200">
+        <div className="text-center">
+          <p className="text-blue-700 text-sm font-medium">📊 Diagram</p>
+          <p className="text-blue-600 text-xs mt-1">(Unable to render diagram)</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!svg) {
+    return null;
+  }
 
   return <div className="my-4 flex justify-center bg-white p-4 rounded-lg shadow-sm border border-gray-100 overflow-auto" dangerouslySetInnerHTML={{ __html: svg }} />;
 };
