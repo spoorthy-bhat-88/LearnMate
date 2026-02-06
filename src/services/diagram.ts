@@ -1,12 +1,17 @@
 // Import viz dynamically to avoid TypeScript issues
-let VizConstructor: any = null;
+let vizInstance: any = null;
 
 async function getViz() {
-  if (!VizConstructor) {
-    const module = await import('@viz-js/viz') as any;
-    VizConstructor = module.default || module.Viz || module;
+  if (!vizInstance) {
+    try {
+      const vizModule = await import('@viz-js/viz');
+      vizInstance = await vizModule.instance();
+    } catch (error) {
+      console.error('Failed to load Viz:', error);
+      throw error;
+    }
   }
-  return new VizConstructor();
+  return vizInstance;
 }
 
 // Simple converter from Mermaid to Graphviz DOT format for common diagrams
